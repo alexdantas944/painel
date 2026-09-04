@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#071018">
+<meta name="description" content="MEU SISMO 2.0 — monitor sísmico independente usando dados do Centro de Sismologia da USP.">
+<title>MEU SISMO 2.0</title>
+<link rel="preconnect" href="https://unpkg.com">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{--bg:#05090d;--card:#0b131b;--card2:#101b25;--line:#1c2a36;--text:#f4f7fa;--muted:#91a2b1;--accent:#ffb703;--danger:#ff5d5d;--ok:#48d597;--blue:#55aaff}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+body{min-height:100vh}
+button,input,select{font:inherit}
+button{border:0;color:var(--text);cursor:pointer}
+.app{width:min(1180px,100%);margin:auto;padding-bottom:28px}
+header{position:sticky;top:0;z-index:1000;background:rgba(5,9,13,.92);backdrop-filter:blur(14px);border-bottom:1px solid var(--line);padding:12px 14px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{width:42px;height:42px;border-radius:13px;background:linear-gradient(145deg,#18232d,#05090d);border:1px solid #2b3a46;display:grid;place-items:center;font-size:22px;box-shadow:0 8px 24px #0008}
+.brand b{font-size:17px;letter-spacing:.08em}.brand small{display:block;color:var(--muted);font-size:10px;margin-top:2px}
+.live{display:flex;align-items:center;gap:7px;color:var(--ok);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 5px #48d59718;animation:pulse 1.8s infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 9px #48d59700}}
+main{padding:14px}
+.hero{padding:18px 4px 12px}
+.kicker{color:var(--accent);font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+h1{font-size:clamp(27px,7vw,48px);line-height:1;margin:7px 0 9px;letter-spacing:-.04em}
+.hero p{margin:0;color:var(--muted);max-width:720px;font-size:14px;line-height:1.5}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:10px 0 12px}
+.stat,.panel{background:linear-gradient(145deg,var(--card),#081017);border:1px solid var(--line);border-radius:17px}
+.stat{padding:13px;min-height:78px}.stat span{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.08em}.stat strong{display:block;font-size:20px;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.controls{display:flex;gap:8px;overflow:auto;padding:2px 0 11px;scrollbar-width:none}.controls::-webkit-scrollbar{display:none}
+.btn,.select{height:42px;border-radius:12px;background:var(--card2);border:1px solid var(--line);padding:0 13px;white-space:nowrap}
+.btn.primary{background:var(--accent);color:#111;font-weight:800;border-color:#ffc933}.btn.active{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.panel{overflow:hidden;margin-bottom:12px}
+.panelhead{padding:13px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px}.panelhead b{font-size:14px}.panelhead small{color:var(--muted)}
+#map{height:53vh;min-height:360px;background:#091017}
+.leaflet-container{background:#091017}
+.leaflet-control-zoom a{background:#101a23!important;color:#fff!important;border-color:#263743!important}
+.legend{padding:10px 13px;color:var(--muted);font-size:11px;border-top:1px solid var(--line)}
+.list{display:grid}.event{padding:13px 14px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:52px 1fr auto;gap:11px;align-items:center}.event:last-child{border-bottom:0}
+.mag{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;background:#15212b;border:1px solid #2a3946;font-weight:900;font-size:16px}.mag.m3{background:#153022}.mag.m4{background:#39311a}.mag.m5{background:#3c241f}
+.event b{font-size:13px}.event p{margin:4px 0 0;color:var(--muted);font-size:11px;line-height:1.35}.time{text-align:right;color:var(--muted);font-size:10px;white-space:nowrap}
+.empty{padding:30px 18px;text-align:center;color:var(--muted)}.empty strong{display:block;color:var(--text);margin-bottom:6px}
+.notice{padding:11px 13px;border-radius:13px;background:#241e0d;border:1px solid #594b1c;color:#eadfae;font-size:11px;line-height:1.45;margin-bottom:12px}
+.error{background:#2a1215;border-color:#5d252c;color:#ffc4c9}
+.source{padding:14px;color:var(--muted);font-size:11px;line-height:1.5}.source a{color:#9bcfff}
+.footer{text-align:center;color:#657786;font-size:10px;padding:8px 16px 20px}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#101a23;color:#fff}.leaflet-popup-content{font-size:12px}.popup b{font-size:15px}.popup span{color:#9aabba}
+@media(max-width:700px){.grid{grid-template-columns:repeat(2,1fr)}#map{height:47vh;min-height:320px}.event{grid-template-columns:48px 1fr auto}.mag{width:48px;height:48px}.hero{padding-top:12px}}
+@media(min-width:900px){main{padding:20px}.hero{padding-top:28px}.layout{display:grid;grid-template-columns:1.25fr .75fr;gap:12px}.layout .panel:first-child{grid-row:span 2}#map{height:650px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header><div class="top">
+  <div class="brand"><div class="logo">〽</div><div><b>MEU SISMO</b><small>MONITOR BRASIL • USP</small></div></div>
+  <div class="live"><i class="dot"></i> AO VIVO</div>
+</div></header>
+
+<main>
+<section class="hero">
+  <div class="kicker">Dados sísmicos • Centro de Sismologia USP</div>
+  <h1>O Brasil em movimento.</h1>
+  <p>Um painel independente para acompanhar eventos sísmicos do catálogo do Centro de Sismologia da Universidade de São Paulo.</p>
+</section>
+
+<div id="notice" class="notice" style="display:none"></div>
+
+<div class="grid">
+  <div class="stat"><span>Eventos exibidos</span><strong id="count">—</strong></div>
+  <div class="stat"><span>Maior magnitude</span><strong id="maxMag">—</strong></div>
+  <div class="stat"><span>Mais recente</span><strong id="latest">—</strong></div>
+  <div class="stat"><span>Atualizado</span><strong id="updated">—</strong></div>
+</div>
+
+<div class="controls">
+  <button class="btn active" data-region="brasil">🇧🇷 Brasil</button>
+  <button class="btn" data-region="latam">🌎 América Latina</button>
+  <button class="btn" data-region="mundo">🌐 Mundo</button>
+  <select id="days" class="select"><option value="1">Últimas 24h</option><option value="7" selected>Últimos 7 dias</option><option value="30">Últimos 30 dias</option></select>
+  <select id="minmag" class="select"><option value="0">M ≥ 0</option><option value="1">M ≥ 1</option><option value="2">M ≥ 2</option><option value="3">M ≥ 3</option><option value="4">M ≥ 4</option><option value="5">M ≥ 5</option></select>
+  <button id="locate" class="btn">📍 Minha região</button>
+  <button id="refresh" class="btn primary">↻ Atualizar</button>
+</div>
+
+<div class="layout">
+<section class="panel">
+  <div class="panelhead"><b>Mapa sísmico</b><small id="mapLabel">Brasil</small></div>
+  <div id="map"></div>
+  <div class="legend">Tamanho do círculo = magnitude • profundidade e status são exibidos ao tocar no evento.</div>
+</section>
+
+<section class="panel">
+  <div class="panelhead"><b>Últimos eventos</b><small id="listStatus">Carregando…</small></div>
+  <div id="events" class="list"></div>
+</section>
+
+<section class="panel">
+  <div class="panelhead"><b>Sobre os dados</b></div>
+  <div class="source">
+    A fonte é o <b>Centro de Sismologia da USP</b>, que disponibiliza catálogo sísmico atualizado continuamente por serviço FDSN. Eventos muito recentes podem estar em processamento automático e sofrer revisão posterior.
+    <br><br>
+    <a href="https://www.moho.iag.usp.br/rq/event" target="_blank" rel="noopener">Abrir catálogo oficial USP ↗</a>
+    &nbsp;•&nbsp;
+    <a href="https://sismo.iag.usp.br/eq/" target="_blank" rel="noopener">Monitor oficial USP ↗</a>
+  </div>
+</section>
+</div>
+<div class="footer">MEU SISMO 2.0 é uma interface independente e não é um site oficial da USP. Dados e localizações podem ser revisados pela fonte.</div>
+</main>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const API='https://www.moho.iag.usp.br/fdsnws/event/1/query';
+const BR={minlatitude:-34,maxlatitude:6,minlongitude:-74,maxlongitude:-34};
+const LATAM={minlatitude:-56,maxlatitude:33,minlongitude:-120,maxlongitude:-30};
+let region='brasil', events=[], markers=[], userMarker=null;
+
+const $=id=>document.getElementById(id);
+const map=L.map('map',{zoomControl:true,preferCanvas:true}).setView([-14.2,-51.9],4);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OpenStreetMap'}).addTo(map);
+
+function setNotice(text,type=''){const n=$('notice');n.textContent=text;n.className='notice '+type;n.style.display=text?'block':'none'}
+function isoDate(d){return d.toISOString().replace(/\.\d{3}Z$/,'Z')}
+function fmtTime(v){if(!v)return '—';const d=new Date(v);return new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).format(d)}
+function fmtFull(v){if(!v)return '—';return new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'medium'}).format(new Date(v))}
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+function regionBounds(){return region==='brasil'?BR:region==='latam'?LATAM:null}
+function apiURL(){
+  const end=new Date(), start=new Date(end.getTime()-Number($('days').value)*86400000);
+  const p=new URLSearchParams({format:'geojson',starttime:isoDate(start),endtime:isoDate(end),minmagnitude:$('minmag').value,limit:'1000',orderby:'time'});
+  const b=regionBounds(); if(b) Object.entries(b).forEach(([k,v])=>p.set(k,v));
+  return API+'?'+p.toString();
+}
+function parseGeoJSON(data){
+  if(!data || !Array.isArray(data.features)) return [];
+  return data.features.map((f,i)=>{
+    const c=f.geometry?.coordinates||[];
+    const pr=f.properties||{};
+    const lon=Number(c[0]),lat=Number(c[1]),depth=Number(c[2]);
+    const mag=Number(pr.mag);
+    if(!Number.isFinite(lat)||!Number.isFinite(lon)) return null;
+    return {id:f.id||pr.ids||('usp-'+i+'-'+pr.time),lat,lon,depth:Number.isFinite(depth)?depth:null,mag:Number.isFinite(mag)?mag:null,time:pr.time||pr.origintime||null,place:pr.place||pr.region||pr.description||'Localização não informada',status:pr.status||pr.reviewstatus||'não informado',type:pr.type||'earthquake'};
+  }).filter(Boolean).sort((a,b)=>new Date(b.time)-new Date(a.time));
+}
+async function fetchEvents(){
+  $('listStatus').textContent='Consultando USP…';
+  setNotice('');
+  try{
+    const r=await fetch(apiURL(),{cache:'no-store'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const data=await r.json();
+    events=parseGeoJSON(data);
+    render();
+    if(!events.length) setNotice('Nenhum evento encontrado para os filtros selecionados. Tente aumentar o período ou reduzir a magnitude mínima.','');
+  }catch(err){
+    events=[]; render();
+    setNotice('Não foi possível consultar o catálogo USP diretamente neste navegador. Verifique a conexão ou abra o catálogo oficial. O site não inventa eventos quando a fonte está indisponível.','error');
+    $('listStatus').textContent='Falha na consulta';
+  }
+}
+function magClass(m){if(m>=5)return 'm5';if(m>=4)return 'm4';if(m>=3)return 'm3';return ''}
+function radius(m){return Math.max(4,Math.min(24,4+(Number(m)||0)*3.2))}
+function clearMarkers(){markers.forEach(x=>map.removeLayer(x));markers=[]}
+function renderMap(){
+  clearMarkers();
+  events.forEach(e=>{
+    const color=e.mag>=5?'#ff5d5d':e.mag>=4?'#ffb703':'#55aaff';
+    const c=L.circleMarker([e.lat,e.lon],{radius:radius(e.mag),weight:2,color,fillColor:color,fillOpacity:.55});
+    c.bindPopup(`<div class="popup"><b>M ${e.mag==null?'—':e.mag.toFixed(1)}</b><br>${esc(e.place)}<br><span>${fmtFull(e.time)} • ${e.depth==null?'Profundidade —':e.depth.toFixed(1)+' km'} • ${esc(e.status)}</span></div>`);
+    c.addTo(map);markers.push(c);
+  });
+}
+function renderList(){
+  const box=$('events');
+  if(!events.length){box.innerHTML='<div class="empty"><strong>Nenhum evento encontrado</strong>Ajuste os filtros e tente novamente.</div>';return}
+  box.innerHTML=events.slice(0,80).map(e=>`<div class="event" data-id="${esc(e.id)}">
+    <div class="mag ${magClass(e.mag)}">${e.mag==null?'—':e.mag.toFixed(1)}</div>
+    <div><b>${esc(e.place)}</b><p>${e.depth==null?'Profundidade não informada':e.depth.toFixed(1)+' km de profundidade'} • ${esc(e.status)}</p></div>
+    <div class="time">${fmtTime(e.time)}</div>
+  </div>`).join('');
+  box.querySelectorAll('.event').forEach(el=>el.onclick=()=>{
+    const e=events.find(x=>x.id===el.dataset.id);if(!e)return;
+    map.setView([e.lat,e.lon],Math.max(map.getZoom(),6),{animate:true});
+    const m=markers[events.indexOf(e)];if(m)m.openPopup();
+  });
+}
+function render(){
+  $('count').textContent=events.length;
+  const valid=events.filter(e=>Number.isFinite(e.mag));
+  $('maxMag').textContent=valid.length?Math.max(...valid.map(e=>e.mag)).toFixed(1):'—';
+  $('latest').textContent=events[0]?fmtTime(events[0].time):'—';
+  $('updated').textContent=new Intl.DateTimeFormat('pt-BR',{hour:'2-digit',minute:'2-digit'}).format(new Date());
+  $('listStatus').textContent=events.length?events.length+' evento(s)':'0 eventos';
+  renderMap();renderList();
+}
+function setRegion(r){
+  region=r;
+  document.querySelectorAll('[data-region]').forEach(b=>b.classList.toggle('active',b.dataset.region===r));
+  $('mapLabel').textContent=r==='brasil'?'Brasil':r==='latam'?'América Latina':'Mundo';
+  if(r==='brasil')map.setView([-14.2,-51.9],4);
+  else if(r==='latam')map.setView([-10,-65],3);
+  else map.setView([10,0],2);
+  fetchEvents();
+}
+document.querySelectorAll('[data-region]').forEach(b=>b.onclick=()=>setRegion(b.dataset.region));
+$('days').onchange=fetchEvents;$('minmag').onchange=fetchEvents;$('refresh').onclick=fetchEvents;
+$('locate').onclick=()=>{
+  if(!navigator.geolocation){setNotice('Seu navegador não oferece localização.','error');return}
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const {latitude,longitude}=pos.coords;
+    if(userMarker)map.removeLayer(userMarker);
+    userMarker=L.marker([latitude,longitude]).addTo(map).bindPopup('<b>Minha localização</b>').openPopup();
+    map.setView([latitude,longitude],6);
+  },()=>setNotice('Não foi possível obter sua localização. Autorize o acesso ao GPS e tente novamente.','error'),{enableHighAccuracy:true,timeout:10000});
+};
+fetchEvents();
+setInterval(fetchEvents,5*60*1000);
+</script>
+</body>
+</html>
